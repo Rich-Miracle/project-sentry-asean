@@ -1,0 +1,63 @@
+{
+  "title": "Project Sentry ASEAN — CISO Command Center",
+  "uid": "sentry-ciso",
+  "tags": ["pdpa", "dlp"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {
+      "type": "stat", "title": "Total BLOCKED",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(sentry_verdicts_total{verdict=\"BLOCK\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "red"}}}
+    },
+    {
+      "type": "stat", "title": "Total ALLOWED",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "sum(sentry_verdicts_total{verdict=\"ALLOW\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "green"}}}
+    },
+    {
+      "type": "stat", "title": "Flows Inspected",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(sentry_flows_inspected_total)", "refId": "A"}]
+    },
+    {
+      "type": "stat", "title": "Audit Reports",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "sentry_reports_generated_total", "refId": "A"}]
+    },
+    {
+      "type": "timeseries", "title": "Enforcement Events Over Time",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{"expr": "sum by (verdict) (increase(sentry_verdicts_total[1m]))",
+                   "legendFormat": "{{verdict}}", "refId": "A"}]
+    },
+    {
+      "type": "piechart", "title": "Verdicts by Jurisdiction",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [{"expr": "sum by (jurisdiction, verdict) (sentry_verdicts_total)",
+                   "legendFormat": "{{jurisdiction}} / {{verdict}}", "refId": "A"}]
+    },
+    {
+      "type": "bargauge", "title": "PII Types Detected",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{"expr": "sum by (pii_type) (sentry_pii_detected_total)",
+                   "legendFormat": "{{pii_type}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries", "title": "Verdict Latency (p50 / p95)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(sentry_eval_latency_seconds_bucket[5m])) by (le))",
+         "legendFormat": "p50", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(sentry_eval_latency_seconds_bucket[5m])) by (le))",
+         "legendFormat": "p95", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

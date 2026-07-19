@@ -1,0 +1,155 @@
+# compose/docker-compose.yml
+# Project Sentry ASEAN — v2 testbed (blueprint Section 5)
+name: sentry-asean
+
+services:
+  workload:
+    # Enterprise application workload — SOURCE of all test traffic.
+    # eBPF TC hook attaches to this container's egress interface.
+    build:
+      context: ..
+      dockerfile: compose/testnode/Dockerfile
+    container_name: sentry-workload
+    command: sleep infinity
+    cap_add: [NET_ADMIN, SYS_ADMIN, BPF]   # required for eBPF + TC
+    privileged: true                        # PoC: simplest path for eBPF
+    ports:
+      - "8090:8090"
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.30
+
+  sentry:
+    # Go controller + flow reassembler + Python AI Agent + mitmproxy.
+    build:
+      context: ..
+      dockerfile: compose/sentry/Dockerfile
+    container_name: sentry-core
+    command: sleep infinity
+    cap_add: [NET_ADMIN, SYS_ADMIN, BPF]
+    privileged: true
+    network_mode: "container:sentry-workload"   # <-- shares workload's netns
+    depends_on: [workload]                       # <-- workload must start first 
+    env_file:
+      - .env
+    volumes:
+      - ../reports:/reports
+      - ../logs:/var/log/sentry
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sentry-ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=-1
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.50
+
+  mailserver:
+    # Postfix — encrypted-email demo target (plaintext + TLS-SMTP).
+    build:
+      context: ..
+      dockerfile: compose/testnode/Dockerfile
+    container_name: sentry-mailserver
+    command: sleep infinity
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.10
+
+  sg-server:
+    build:
+      context: ..
+      dockerfile: compose/testnode/Dockerfile
+    container_name: sentry-sg-server
+    command: sleep infinity
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.20
+
+  my-server:
+    build:
+      context: ..
+      dockerfile: compose/testnode/Dockerfile
+    container_name: sentry-my-server
+    command: sleep infinity
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.21
+
+  us-server:
+    build:
+      context: ..
+      dockerfile: compose/testnode/Dockerfile
+    container_name: sentry-us-server
+    command: /tmp/us-server-entry.sh
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.22
+    
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sentry-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.60
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sentry-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=sentry
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/provisioning:/etc/grafana/provisioning
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.61
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: sentry-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.62
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: sentry-promtail
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - ../logs:/var/log/sentry:ro
+      - ../monitoring/loki/promtail.yml:/etc/promtail/promtail.yml:ro
+    networks:
+      sentry-net:
+        ipv4_address: 172.30.0.63
+    depends_on: [loki]
+
+networks:
+  sentry-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+volumes:
+  ollama_data:
+  prometheus_data:
+  grafana_data:

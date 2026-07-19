@@ -1,0 +1,21 @@
+server:
+  http_listen_port: 9080
+positions:
+  filename: /tmp/positions.yaml
+clients:
+  - url: http://172.30.0.62:3100/loki/api/v1/push
+scrape_configs:
+  - job_name: sentry
+    static_configs:
+      - targets: [localhost]
+        labels:
+          path: smtp
+          __path__: /var/log/sentry/mitm-smtp.log
+      - targets: [localhost]
+        labels:
+          path: https
+          __path__: /var/log/sentry/mitm-https.log
+      - targets: [localhost]
+        labels:
+          path: agent
+          __path__: /var/log/sentry/agent.log

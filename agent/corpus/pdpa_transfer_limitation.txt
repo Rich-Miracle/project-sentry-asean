@@ -1,0 +1,35 @@
+[PDPA-S26-1] Transfer Limitation Obligation — Section 26(1).
+Section 26 of the Personal Data Protection Act 2012 restricts an organisation from transferring any personal data to a country or territory outside Singapore except in accordance with requirements prescribed under the Act. The organisation must ensure that the recipient provides a standard of protection to the transferred personal data that is comparable to the protection under the PDPA. This is known as the Transfer Limitation Obligation.
+
+[PDPA-S26-2] Comparable protection standard.
+The PDPC has clarified that "comparable" does not mean identical. The receiving country or organisation does not need to have laws that mirror the PDPA exactly. The transferring organisation must ensure the overseas recipient is subject to legally enforceable obligations to provide a standard of protection at least comparable to that under the PDPA. Where no comparable protection exists and no exception applies, the transfer is not permitted.
+
+[PDPA-REG10] Legally enforceable obligations — Regulation 10.
+Under Regulation 10 of the Personal Data Protection Regulations 2021, legally enforceable obligations ensuring comparable protection may arise from a contract, binding corporate rules, or a specified certification. A contract must require the recipient to provide a standard of protection for the transferred personal data that is at least comparable to the protection under the PDPA, and must specify the countries and territories to which the data may be transferred.
+
+[PDPA-CONSENT] Transfer with individual consent.
+An organisation may transfer personal data overseas with the individual's consent, provided the individual has been informed that the data will be transferred overseas and that the overseas recipient may not be subject to data protection standards comparable to the PDPA. Consent obtained without informing the individual of these matters is not valid consent for the purpose of the Transfer Limitation Obligation.
+
+[PDPA-CERT] Certification mechanisms — CBPR and PRP.
+The Personal Data Protection Regulations recognise certification under the APEC Cross-Border Privacy Rules (CBPR) system and, for data intermediaries, the Privacy Recognition for Processors (PRP) system as an accepted basis for transfer. Where an overseas recipient holds a valid CBPR or PRP certification recognised in its jurisdiction, it is deemed to be subject to enforceable obligations ensuring comparable protection. The Global CBPR framework, launched in 2025, extends this to participating economies including the United States, Japan, Australia, and Canada.
+
+[PDPA-ASEAN-MCC] ASEAN Model Contractual Clauses.
+The PDPC recognises and encourages the use of the ASEAN Model Contractual Clauses (MCCs) for cross-border data flows. These are standard contractual terms that businesses can incorporate into binding legal agreements when transferring personal data between entities across ASEAN member states, including Singapore, Malaysia, Indonesia, Thailand, and the Philippines. Using the ASEAN MCCs provides assurance that contractual protections meet regulatory expectations for intra-ASEAN transfers.
+
+[PDPA-EXCEPTION] Exceptions to the Transfer Limitation Obligation.
+The Transfer Limitation Obligation does not apply where the transfer is necessary for specific purposes, such as a use or disclosure necessary to respond to an emergency that threatens the life, health, or safety of the individual or another person, or where the personal data is publicly available. In such cases the organisation may transfer the data provided reasonable steps are taken to ensure it is not used or disclosed for other purposes.
+
+[PDPA-DATA-INTRANSIT] Data in transit.
+Personal data that is transferred through Singapore en route to a destination outside Singapore, and which is not accessed, used, or disclosed by any organisation in Singapore other than the transferring organisation, is treated as data in transit. The Transfer Limitation Obligation does not apply in respect of data in transit.
+
+[PDPA-PENALTY] Enforcement and penalties.
+Non-compliance with the Transfer Limitation Obligation carries significant penalties. The PDPC may impose financial penalties of up to S$1 million per breach. For organisations with annual turnover exceeding S$10 million, penalties of up to 10 per cent of annual turnover may apply. Organisations that transfer personal data overseas without adequate safeguards risk regulatory penalties, particularly where a data breach occurs involving the overseas recipient.
+
+[JURISDICTION-SG] Singapore — domestic.
+Personal data that remains within Singapore is not a cross-border transfer and the Transfer Limitation Obligation is not engaged. Domestic processing is governed by the other Data Protection Provisions of the PDPA but does not require a transfer safeguard.
+
+[JURISDICTION-MY] Malaysia — ASEAN member.
+Malaysia is an ASEAN member state. Transfers of personal data from Singapore to Malaysia may be made in compliance with the Transfer Limitation Obligation where a recognised safeguard is in place, such as the ASEAN Model Contractual Clauses, a comparable-protection contract, or valid certification. Malaysia's Personal Data Protection Act 2010 provides a data protection regime, but a documented safeguard is still required for the transfer to comply.
+
+[JURISDICTION-US] United States — non-comparable by default.
+The United States does not have a single comprehensive federal data protection law comparable to the PDPA. A transfer of personal data from Singapore to a recipient in the United States does not, by default, satisfy the Transfer Limitation Obligation. It may only comply where a specific safeguard is present, such as the recipient holding a valid Global CBPR certification, a comparable-protection contract, or binding corporate rules. Absent such a documented safeguard, the transfer of personal data to the United States is not permitted under the PDPA.

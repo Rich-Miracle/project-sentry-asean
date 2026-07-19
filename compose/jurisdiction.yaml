@@ -1,0 +1,25 @@
+# compose/jurisdiction.yaml
+# Static dest_ip -> jurisdiction mapping (blueprint Section 5)
+# Read by the Go controller to resolve flow jurisdiction.
+
+subnet: 172.30.0.0/24
+
+destinations:
+  - ip: 172.30.0.20
+    name: sg-server
+    jurisdiction: SG
+    classification: EQUIVALENT
+  - ip: 172.30.0.21
+    name: my-server
+    jurisdiction: MY
+    classification: EQUIVALENT
+  - ip: 172.30.0.22
+    name: us-server
+    jurisdiction: US
+    classification: NON_EQUIVALENT
+  - ip: 172.30.0.10
+    name: mailserver
+    jurisdiction: SG
+    classification: EQUIVALENT
+
+# Any dest_ip NOT listed here -> treated as Unknown -> fail-secure BLOCK

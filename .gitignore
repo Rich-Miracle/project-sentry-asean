@@ -1,0 +1,11 @@
+.env
+*.log
+logs/
+reports/*.pdf
+compose/mitm-ca/*.pem
+compose/mitm-ca/*.p12
+__pycache__/
+*.pyc
+*.working-backup
+sentry.sh.old
+*.tar.gz

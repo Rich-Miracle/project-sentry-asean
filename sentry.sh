@@ -24,11 +24,40 @@ probe(){
   SMTP=$(C 'pgrep -f "listen-port 4465" >/dev/null' && echo up || echo down)
   HTTPS=$(C 'pgrep -f "listen-port 4480" >/dev/null' && echo up || echo down)
   UI=$(C 'pgrep -f demo_server.py >/dev/null' && echo up || echo down)
-  CTRL=$(C 'pgrep -f /controller/sentry-controller >/dev/null' && echo up || echo down)
+  CTRL=$(C 'pgrep -f sentry-controller >/dev/null' && echo up || echo down)
   OLLAMA=$(docker exec sentry-ollama ollama ps 2>/dev/null | grep -q llama && echo up || echo down)
   GRAF=$(docker ps --filter name=sentry-grafana --filter status=running -q | grep -q . && echo up || echo down)
   LOKI=$(docker ps --filter name=sentry-loki --filter status=running -q | grep -q . && echo up || echo down)
   MAIL=$(docker exec sentry-mailserver sh -c 'ss -tlnp 2>/dev/null | grep -q :465' && echo up || echo down)
+}
+
+# ---- act corpus ------------------------------------------------------------
+act_corpus(){
+  banner; echo "  ${B}PDPA Knowledge Base${R} ${D}— corpus the RAG engine reasons from${R}"; line
+  local corpus
+  corpus=$(docker exec sentry-core cat /agent/corpus/pdpa_transfer_limitation.txt 2>/dev/null)
+  if [ -z "$corpus" ]; then echo "  ${RED}corpus not found${R}"; return; fi
+
+  # Count clauses
+  local n; n=$(echo "$corpus" | grep -c '^\[')
+  echo "  ${GRY}${n} clauses indexed${R}"; echo
+
+  # Render each [TAG] block: tag highlighted, text wrapped
+  echo "$corpus" | awk -v tea="$(printf '\033[38;5;36m')" -v b="$(printf '\033[1m')" \
+      -v gry="$(printf '\033[38;5;244m')" -v r="$(printf '\033[0m')" '
+    /^\[/ {
+      tag=$0; sub(/\].*/,"]",tag); title=$0; sub(/^\[[^]]*\] /,"",title)
+      printf "  %s%s%s%s %s\n", b, tea, tag, r, title
+      next
+    }
+    NF { 
+      # wrap body at ~66 chars, indented
+      gsub(/.{1,66}( |$)/, "&\n")
+      n=split($0, lines, "\n")
+      for(i=1;i<=n;i++) if(lines[i]!="") printf "     %s%s%s\n", gry, lines[i], r
+      print ""
+    }
+  '
 }
 
 # ---- banner ----------------------------------------------------------------
@@ -56,6 +85,11 @@ act_start(){
   banner; echo "  ${B}Starting stack + interception${R}"; line
   "$ROOT/start.sh"
   "$ROOT/setup-transparent.sh"
+  # eBPF enforcement plane (TCX egress) — start after agent is up
+  docker exec sentry-core sh -c 'pkill -f sentry-controller 2>/dev/null'; sleep 1
+  docker exec -d -w /controller sentry-core sh -c 'setsid ./sentry-controller > /var/log/sentry/controller.log 2>&1 < /dev/null'
+  sleep 3
+  echo "  eBPF controller: $(docker exec sentry-core sh -c 'pgrep -f sentry-controller >/dev/null && echo attached || echo failed')"
   echo; echo "  ${GRN}Ready.${R}  Web console → ${BLU}http://$VMIP:8090${R}"
 }
 
@@ -139,9 +173,10 @@ while true; do
   printf "   ${B}1${R}  ${WHT}Start${R} stack + interception\n"
   printf "   ${B}2${R}  ${WHT}Stop${R} stack\n"
   printf "   ${B}3${R}  ${WHT}Health${R} check\n"
-  printf "   ${B}4${R}  Run ${WHT}demo${R} (SMTPS + HTTPS)\n"
-  printf "   ${B}5${R}  Audit ${WHT}reports${R}\n"
-  printf "   ${B}6${R}  Live ${WHT}logs${R}\n"
+  printf "   ${B}4${R}  Run ${WHT}Payload Demo${R} (SMTPS + HTTPS)\n"
+  printf "   ${B}5${R}  PDPA ${WHT}Knowledge Base${R}\n"
+  printf "   ${B}6${R}  Audit ${WHT}reports${R}\n"
+  printf "   ${B}7${R}  Live ${WHT}logs${R}\n"
   printf "   ${B}0${R}  ${D}Exit${R}\n"
   line
   printf "  ▸ "; read -r c
@@ -150,8 +185,9 @@ while true; do
     2) act_stop ;;
     3) act_health ;;
     4) act_demo ;;
-    5) act_reports ;;
-    6) act_logs; continue ;;
+    5) act_corpus| less -R -P"PDPA corpus — ↑↓ scroll · q to exit review mode"; continue ;;
+    6) act_reports ;;
+    7) act_logs; continue ;;
     0) clear; exit 0 ;;
     *) continue ;;
   esac

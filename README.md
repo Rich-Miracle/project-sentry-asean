@@ -37,7 +37,7 @@ The system is organised into three conceptual planes:
 
 | Plane | Role | Components |
 |-------|------|-----------|
-| 🛡️ **Enforcement** | Intercepts and acts on traffic | eBPF TC egress program, transparent proxy (mitmproxy), `iptables` redirection |
+| 🛡️ **Enforcement** | Intercepts and acts on traffic | eBPF TCX-egress program, transparent proxy (mitmproxy), `iptables` redirection |
 | 🔬 **Inspection** | Extracts and understands content | extraction router, Presidio detectors, OCR |
 | 🧠 **Decision** | Reasons about lawfulness | RAG engine, local LLM, PDPA corpus |
 
@@ -45,7 +45,11 @@ All inspection paths converge on a single evaluation endpoint (`/evaluate`), whi
 
 ### ⚡ Trap-and-Evaluate model
 
-The eBPF TC egress program keys each flow against a kernel-resident verdict map. A flow with a cached verdict is enforced in-kernel; a flow with no cached verdict is trapped, and its leading payload bytes (up to a 4096-byte capture bound) are surfaced to userspace for evaluation. The controller writes the resulting verdict back into the kernel map. Destinations the system cannot evaluate are dropped, not allowed (fail-secure).
+The eBPF program attaches at **TCX egress** (`AttachTCX`, the modern kernel attachment API) and keys each flow against a kernel-resident verdict map. A flow with a cached verdict is enforced in-kernel; a flow with no cached verdict is trapped, and its leading payload bytes (up to a 4096-byte capture bound) are surfaced to userspace over a ring buffer for evaluation. The controller writes the resulting verdict back into the kernel map. Destinations the system cannot evaluate are dropped, not allowed (fail-secure).
+
+### 🔀 Why two enforcement mechanisms
+
+The eBPF and proxy planes are complementary, not redundant. At egress the eBPF program sees traffic **after** TLS encryption, so it can enforce a cached verdict at kernel speed but cannot read encrypted content. Content inspection therefore happens in the **proxy plane**, which terminates TLS with the organisation's own certificate authority and reads the decrypted payload. In short: the proxy plane *understands* traffic, the eBPF plane *enforces* judgements at kernel speed once they exist.
 
 ---
 
@@ -69,7 +73,7 @@ The eBPF TC egress program keys each flow against a kernel-resident verdict map.
 agent/          Python AI agent — PII detection, extraction routing, RAG engine, audit reports
   corpus/       Curated PDPA legal corpus (tagged clauses)
 controller/     Go controller — eBPF loader, flow reassembler, jurisdiction resolution
-kernel/         eBPF TC egress program (C)
+kernel/         eBPF TCX-egress program (C)
 compose/        Docker Compose stack, per-service Dockerfiles, jurisdiction mapping
 demo-ui/        "Meridian Mail" demonstration console (React, Flask-served)
 monitoring/     Prometheus, Grafana, and Loki configuration

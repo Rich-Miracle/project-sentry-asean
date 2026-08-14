@@ -122,7 +122,7 @@ class RagEngine:
         return list(zip(tags, docs))
 
     def _build_prompt(self, pii_types: list, jurisdiction: str,
-                      classification: str, context: str) -> str:
+                      classification: str, context: str, safeguard: str = "none") -> str:
         """Construct the PDPA reasoning prompt. Shared by evaluate() and evaluate_fast()."""
         return f"""You are a PDPA compliance engine. Apply Singapore's PDPA \
 Transfer Limitation Obligation to the transfer described below.
@@ -131,14 +131,19 @@ TRANSFER:
   Personal data types detected: {pii_types}
   Destination jurisdiction: {jurisdiction}
   Jurisdiction classification: {classification}
-
+  Documented safeguard on file: {safeguard}
 RETRIEVED PDPA CLAUSES:
 {context}
 
 DECISION PROCEDURE (follow exactly):
   1. If classification is EQUIVALENT, the transfer is permitted -> verdict = ALLOW.
-  2. If classification is NON_EQUIVALENT, the transfer is not permitted
-     without a documented safeguard -> verdict = BLOCK.
+  2. If classification is NON_EQUIVALENT AND the documented safeguard is "none",
+     the transfer is not permitted -> verdict = BLOCK.
+  3. If classification is NON_EQUIVALENT BUT a documented safeguard is present
+     (ASEAN_MCC, CBPR, or contract), that safeguard supplies the comparable
+     protection the PDPA requires -> verdict = ALLOW. Cite the clause that
+     recognises that safeguard (e.g. the ASEAN Model Contractual Clauses, or
+     the CBPR certification clause).
 
 Then select the ONE clause tag above that legally supports your verdict, and write
 a one-sentence reason that states WHY, using the content of that clause.
@@ -171,7 +176,17 @@ Respond with ONLY a JSON object:
             f"PDPA Transfer Limitation Obligation."
         )
         retrieved = self.retrieve(query)
-
+	# When a safeguard is documented, guarantee its recognising clause is
+        # in context — otherwise the model has rule 3 but no clause to cite.
+        if safeguard and safeguard != "none":
+            sg_tag = {"ASEAN_MCC": "PDPA-ASEAN-MCC",
+                      "CBPR": "PDPA-CERT",
+                      "contract": "PDPA-REG10"}.get(safeguard)
+            if sg_tag and sg_tag in self.chunks:
+                existing = [t for t, _ in retrieved]
+                if sg_tag not in existing:
+                    # drop the lowest-ranked clause, prepend the safeguard clause
+                    retrieved = [(sg_tag, self.chunks[sg_tag])] + retrieved[:-1]
         context = "\n\n".join(f"{tag}: {text}" for tag, text in retrieved)
         valid_tags = [tag for tag, _ in retrieved]
 
@@ -334,23 +349,33 @@ Respond with ONLY a JSON object:
         return verdict or result.get("verdict", "BLOCK"), result
 
     def evaluate_fast(self, pii_types: list, jurisdiction: str,
-                      classification: str, flow_id: str = "", on_complete=None) -> dict:
+                      classification: str, safeguard: str = "none", flow_id: str = "", on_complete=None) -> dict:
         """
         Return the verdict as soon as the model emits it (~5s), and finish
         generating the justification in a background thread (~30s).
 
         The completed result lands in justification_store[flow_id].
         """
+        _sg = f" with documented safeguard {safeguard}" if safeguard and safeguard != "none" else ""
         query = (
             f"Transfer of personal data containing {', '.join(pii_types)} "
-            f"to {jurisdiction} ({classification} jurisdiction) under the "
+            f"to {jurisdiction} ({classification} jurisdiction){_sg} under the "
             f"PDPA Transfer Limitation Obligation."
         )
         retrieved = self.retrieve(query)
+        
+        # When a safeguard is documented, guarantee its recognising clause is in
+        # context so the model can apply rule 3 and cite it.
+        if safeguard and safeguard != "none":
+            sg_tag = {"ASEAN_MCC": "PDPA-ASEAN-MCC", "CBPR": "PDPA-CERT",
+                      "contract": "PDPA-REG10"}.get(safeguard)
+            if sg_tag and sg_tag in self.chunks and sg_tag not in [t for t, _ in retrieved]:
+                retrieved = [(sg_tag, self.chunks[sg_tag])] + retrieved[:-1]
+                
         context = "\n\n".join(f"{tag}: {text}" for tag, text in retrieved)
         valid_tags = [tag for tag, _ in retrieved]
         prompt = self._build_prompt(pii_types, jurisdiction, classification,
-                                    context)
+                                    context, safeguard=safeguard)
 
         verdict_ready = threading.Event()
         holder = {"verdict": None, "result": None, "error": None}

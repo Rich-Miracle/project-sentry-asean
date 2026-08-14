@@ -23,9 +23,9 @@ END_OF_DATA = b"\r\n.\r\n"
 # Recipient domain -> (jurisdiction, classification).
 # For email, the destination that matters is the recipient, not the relay.
 RECIPIENT_JURISDICTIONS = {
-    "us-server": ("US", "NON_EQUIVALENT"),
-    "my-server": ("MY", "EQUIVALENT"),
-    "sg-server": ("SG", "EQUIVALENT"),
+    "us-server": ("US", "NON_EQUIVALENT", "none"),
+    "my-server": ("MY", "NON_EQUIVALENT", "ASEAN_MCC"),
+    "sg-server": ("SG", "EQUIVALENT", "none"),
 }
 
 _buffers = {}
@@ -35,12 +35,12 @@ _RCPT_RE = re.compile(rb"RCPT TO:\s*<[^@>]*@([^>]+)>", re.IGNORECASE)
 def _resolve_recipient(buf: bytes):
     m = _RCPT_RE.search(buf)
     if not m:
-        return "UNKNOWN", "NON_EQUIVALENT", "unknown"
+        return "UNKNOWN", "NON_EQUIVALENT", "none", "unknown"
     domain = m.group(1).decode(errors="replace")
-    for key, (j, c) in RECIPIENT_JURISDICTIONS.items():
+    for key, (j, c, s) in RECIPIENT_JURISDICTIONS.items():
         if key in domain:
-            return j, c, domain
-    return "UNKNOWN", "NON_EQUIVALENT", domain
+            return j, c, s, domain
+    return "UNKNOWN", "NON_EQUIVALENT", "none", domain
 
 
 def tcp_message(flow: tcp.TCPFlow):
@@ -56,12 +56,10 @@ def tcp_message(flow: tcp.TCPFlow):
     if END_OF_DATA not in msg.content and END_OF_DATA not in buf:
         return
 
-    # Hold the terminator back — Postfix will not commit the message
-    # until it sees \r\n.\r\n, so we decide before releasing it.
     held = msg.content
     msg.content = b""
 
-    jurisdiction, classification, domain = _resolve_recipient(buf)
+    jurisdiction, classification, safeguard, domain = _resolve_recipient(buf)
 
     idx = buf.find(b"DATA\r\n")
     body = buf[idx + 6:] if idx != -1 else buf
@@ -75,6 +73,7 @@ def tcp_message(flow: tcp.TCPFlow):
         "dest_port": 465,
         "jurisdiction": jurisdiction,
         "classification": classification,
+        "safeguard": safeguard,
         "content_bytes": base64.b64encode(body).decode(),
         "content_type": "text/plain",
     }

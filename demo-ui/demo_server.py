@@ -96,8 +96,12 @@ def send_email():
         blocked = True
         error = type(e).__name__
 
-    time.sleep(0.4)  # let the addon flush its log line
-    detail = _verdict_since(SMTP_LOG, _pre) or {}
+    detail = {}
+    for _ in range(30):                      # poll up to ~6s for the verdict line
+        detail = _verdict_since(SMTP_LOG, _pre) or {}
+        if detail:
+            break
+        time.sleep(0.2)
     return jsonify({
         "blocked": blocked,
         "jurisdiction": jurisdiction,
@@ -131,8 +135,12 @@ def upload_file():
         blocked = True
         status = type(e).__name__
 
-    time.sleep(0.4)
-    detail = _verdict_since(HTTPS_LOG, _pre) or {}
+    detail = {}
+    for _ in range(30):
+        detail = _verdict_since(HTTPS_LOG, _pre) or {}
+        if detail:
+            break
+        time.sleep(0.2)
     return jsonify({
         "blocked": blocked,
         "status": status,

@@ -54,6 +54,7 @@ class EvaluateRequest(BaseModel):
     dest_port: int = 0
     jurisdiction: str = "UNKNOWN"
     classification: str = "NON_EQUIVALENT"   # EQUIVALENT | NON_EQUIVALENT
+    safeguard: str = "none"                  # none | ASEAN_MCC | CBPR | contract
     content_bytes: str = ""                  # base64-encoded payload
     content_type: str = ""
     timestamp: str = ""
@@ -135,7 +136,7 @@ def evaluate(req: EvaluateRequest):
                 "jurisdiction": _req.jurisdiction,
                 "content_type": _req.content_type,
                 "pii_types": _types,
-		"pii_scores": _scores,
+        "pii_scores": _scores,
                 "sensitivity": _sens,
                 "pdpa_clause": full.get("cited_clause"),
                 "justification": full.get("reason"),
@@ -143,10 +144,15 @@ def evaluate(req: EvaluateRequest):
             REPORTS.inc()
 
         result = _engine.evaluate_fast(pii_types, req.jurisdiction,
-                                       req.classification, flow_id=req.flow_id,
+                                       req.classification, safeguard=req.safeguard, flow_id=req.flow_id,
                                        on_complete=_on_complete)
         verdict = result.get("verdict", "BLOCK")
         clause = result.get("cited_clause") or ("JURISDICTION-" + req.jurisdiction)
+        # A documented safeguard is the legal basis for allowing an otherwise
+        # non-equivalent transfer — cite that safeguard's clause.
+        if verdict == "ALLOW" and req.safeguard and req.safeguard != "none":
+            clause = {"ASEAN_MCC": "PDPA-ASEAN-MCC", "CBPR": "PDPA-CERT",
+                      "contract": "PDPA-REG10"}.get(req.safeguard, clause)
         justification = result.get("reason", "")
     else:
         # No personal data present. The PDPA Transfer Limitation Obligation

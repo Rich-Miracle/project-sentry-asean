@@ -116,6 +116,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=sentry
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SNAPSHOTS_EXTERNAL_ENABLED=false
     volumes:
       - grafana_data:/var/lib/grafana
       - ../monitoring/provisioning:/etc/grafana/provisioning

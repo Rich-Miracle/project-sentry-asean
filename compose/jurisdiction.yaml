@@ -12,7 +12,8 @@ destinations:
   - ip: 172.30.0.21
     name: my-server
     jurisdiction: MY
-    classification: EQUIVALENT
+    classification: NON_EQUIVALENT
+    safeguard: ASEAN_MCC
   - ip: 172.30.0.22
     name: us-server
     jurisdiction: US

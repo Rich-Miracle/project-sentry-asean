@@ -17,10 +17,10 @@ AGENT_URL = "http://localhost:8080/evaluate"
 
 # Static jurisdiction map — mirrors compose/jurisdiction.yaml.
 JURISDICTIONS = {
-    "172.30.0.20": ("SG", "EQUIVALENT"),
-    "172.30.0.21": ("MY", "EQUIVALENT"),
-    "172.30.0.22": ("US", "NON_EQUIVALENT"),
-    "172.30.0.10": ("SG", "EQUIVALENT"),
+    "172.30.0.20": ("SG", "EQUIVALENT", "none"),
+    "172.30.0.21": ("MY", "EQUIVALENT", "ASEAN_MCC"),
+    "172.30.0.22": ("US", "NON_EQUIVALENT", "none"),
+    "172.30.0.10": ("SG", "EQUIVALENT", "none"),
 }
 
 
@@ -46,8 +46,8 @@ def request(flow: http.HTTPFlow) -> None:
         return
 
     dest_ip = flow.server_conn.peername[0] if flow.server_conn.peername else ""
-    jurisdiction, classification = JURISDICTIONS.get(
-        dest_ip, ("UNKNOWN", "NON_EQUIVALENT")
+    jurisdiction, classification, safeguard = JURISDICTIONS.get(
+        dest_ip, ("UNKNOWN", "NON_EQUIVALENT", "none")
     )
 
     flow_id = f"{flow.client_conn.peername[0]}->{dest_ip}:{flow.request.port}"
@@ -60,6 +60,7 @@ def request(flow: http.HTTPFlow) -> None:
         "dest_port": flow.request.port,
         "jurisdiction": jurisdiction,
         "classification": classification,
+	"safeguard": safeguard,
         "content_bytes": base64.b64encode(body).decode(),
         "content_type": flow.request.headers.get("content-type", "text/plain"),
     }

@@ -124,5 +124,5 @@ int tc_egress(struct __sk_buff *skb)
 
     if (test_allow)
         return TC_ACT_OK;     /* test-mirror: let the real TCP flow proceed */
-    return TC_ACT_SHOT;       /* normal fail-secure drop */
+    return TC_ACT_SHOT;       /* 2b: default-deny — drop everything not allowlisted or cleared */
 }

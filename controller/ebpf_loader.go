@@ -95,6 +95,48 @@ func loadAndAttach(iface string) (*loadedObjects, link.Link, *ringbuf.Reader, er
 			log.Printf("control-plane exemption: 172.30.0.60 (Prometheus) -> ALLOW")
 		}
 	}
+	// Gateway (routing, model download, DNS egress) — infrastructure allowlist.
+	if vm := coll.Maps["verdict_map"]; vm != nil {
+		var gwKey uint32 = 0x01001EAC // 172.30.0.1
+		var allow uint8 = 0
+		if err := vm.Put(gwKey, allow); err != nil {
+			log.Printf("warning: could not exempt gateway: %v", err)
+		} else {
+			log.Printf("control-plane exemption: 172.30.0.1 (gateway) -> ALLOW")
+		}
+	}
+	// Mail server — mitmproxy delivers cleared mail here. (Phase 3 replaces this
+	// blanket allow with per-flow clearance.)
+	if vm := coll.Maps["verdict_map"]; vm != nil {
+		var mailKey uint32 = 0x0A001EAC // 172.30.0.10
+		var allow uint8 = 0
+		if err := vm.Put(mailKey, allow); err != nil {
+			log.Printf("warning: could not exempt mailserver: %v", err)
+		} else {
+			log.Printf("control-plane exemption: 172.30.0.10 (mailserver) -> ALLOW")
+		}
+	}
+	// VM host — return traffic for published-port services (UI, Grafana) goes
+	// back to the host address; without this, default-deny drops the replies.
+	if vm := coll.Maps["verdict_map"]; vm != nil {
+		var hostKey uint32 = 0x8525A8C0 // 192.168.37.133
+		var allow uint8 = 0
+		if err := vm.Put(hostKey, allow); err != nil {
+			log.Printf("warning: could not exempt VM host: %v", err)
+		} else {
+			log.Printf("control-plane exemption: 192.168.37.133 (VM host) -> ALLOW")
+		}
+	}
+	// VMware host / client side — browser access from the host machine returns here.
+	if vm := coll.Maps["verdict_map"]; vm != nil {
+		var vmhostKey uint32 = 0x0125A8C0 // 192.168.37.1
+		var allow uint8 = 0
+		if err := vm.Put(vmhostKey, allow); err != nil {
+			log.Printf("warning: could not exempt VMware host: %v", err)
+		} else {
+			log.Printf("control-plane exemption: 192.168.37.1 (VMware host) -> ALLOW")
+		}
+	}
 
 	// --- Optional test-mirror seed (disabled by default) ---
 	// Run with:  ./sentry-controller -test-mirror=1.1.1.1

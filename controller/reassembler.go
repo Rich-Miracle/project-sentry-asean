@@ -66,6 +66,7 @@ type Reassembler struct {
 	cap     int // per-flow byte cap
 	done    chan struct{}
 	writeVerdict func(destIP uint32, verdict uint8) error // set by loader
+	writeFlowVerdict func(k FlowMapKey, verdict uint8) error // per-flow clearance, set by loader
 }
 
 // NewReassembler creates a reassembler with the given per-flow cap.
@@ -162,6 +163,15 @@ func (r *Reassembler) flushLocked(key FlowKey, fs *flowState) {
 	}
 	log.Printf("REASSEMBLER: flow %s complete via %s — %d bytes",
 		key, reason, len(rebuilt))
+	// Structured egress-block audit: any flow reaching the reassembler was NOT
+	// in the infra allowlist (allowlisted dests return early in the kernel).
+	// A completed flow that moved 0 bytes to an external destination is a
+	// blocked exfiltration attempt — record it for the audit report.
+	if len(rebuilt) == 0 {
+		log.Printf("EGRESS_BLOCKED src=%s:%d dst=%s:%d proto=TCP reason=not-sanctioned via=%s",
+			ipToString(key.SrcIP), key.SrcPort,
+			ipToString(key.DestIP), key.DestPort, reason)
+	}
 
 	// --- Step 9: evaluate the reassembled payload via the AI agent ---
 	if len(rebuilt) == 0 {
@@ -189,10 +199,22 @@ func (r *Reassembler) flushLocked(key FlowKey, fs *flowState) {
 			if resp.Verdict == "ALLOW" {
 				v = 0
 			}
-			if err := r.writeVerdict(k.DestIP, v); err != nil {
-				log.Printf("failed to write verdict_map: %v", err)
-			} else {
-				log.Printf("verdict_map updated: %s -> %s", ipStr, resp.Verdict)
+			// Per-flow clearance: write this exact 5-tuple into flow_verdict_map.
+			// Ports are host order in FlowKey; the kernel flow_key is network
+			// order, so swap on write. IPs are already network order.
+			if r.writeFlowVerdict != nil {
+				fk := FlowMapKey{
+					SrcIP:   k.SrcIP,
+					DstIP:   k.DestIP,
+					SrcPort: htons(k.SrcPort),
+					DstPort: htons(k.DestPort),
+					Proto:   6, // IPPROTO_TCP
+				}
+				if err := r.writeFlowVerdict(fk, v); err != nil {
+					log.Printf("failed to write flow_verdict_map: %v", err)
+				} else {
+					log.Printf("flow_verdict_map updated: %s -> %s", k.String(), resp.Verdict)
+				}
 			}
 		}
 	}(key, rebuilt, je, destIPStr)

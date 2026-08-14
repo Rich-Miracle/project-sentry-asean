@@ -97,4 +97,16 @@ def tcp_message(flow: tcp.TCPFlow):
         logger.info("MITM-SMTP: BLOCKING — terminator withheld, killing flow")
         flow.kill()          # msg.content stays empty; message never committed
     else:
+        # Per-flow safe-flag: tell the controller to clear THIS exact outbound
+        # tuple in the kernel map, so eBPF passes it. Must land before release.
+        try:
+            sn = flow.server_conn.sockname   # (src_ip, src_port)
+            pn = flow.server_conn.peername   # (dst_ip, dst_port)
+            requests.post("http://127.0.0.1:9095/clear", timeout=3, json={
+                "src_ip": sn[0], "src_port": sn[1],
+                "dst_ip": pn[0], "dst_port": pn[1],
+            })
+            logger.info("MITM-SMTP: flow cleared %s:%s -> %s:%s", sn[0], sn[1], pn[0], pn[1])
+        except Exception as e:
+            logger.warning("MITM-SMTP: clearance write failed: %s", e)
         msg.content = held   # release: Postfix sees \r\n.\r\n and queues it

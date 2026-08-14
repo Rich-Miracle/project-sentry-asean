@@ -19,6 +19,15 @@ struct {
     __type(value, __u8);
 } verdict_map SEC(".maps");
 
+/* flow_verdict_map: key = struct flow_key (5-tuple), value = verdict (uint8).
+   Per-flow content clearance written by the controller after inspection. */
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 4096);
+    __type(key, struct flow_key);
+    __type(value, __u8);
+} flow_verdict_map SEC(".maps");
+
 /* flow_map: dedup -- destinations already sent for AI evaluation */
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -73,7 +82,20 @@ int tc_egress(struct __sk_buff *skb)
         else
             return TC_ACT_SHOT;        /* BLOCK or PENDING */
     } else {
-        /* unknown destination: mark PENDING (fail-secure path) */
+        /* dest not in infra allowlist — check per-flow clearance (5-tuple). */
+        struct flow_key fk = {};
+        fk.src_ip   = ip->saddr;
+        fk.dst_ip   = ip->daddr;
+        fk.src_port = tcp->source;   /* network order, as controller writes */
+        fk.dst_port = tcp->dest;
+        fk.proto    = IPPROTO_TCP;
+        __u8 *fv = bpf_map_lookup_elem(&flow_verdict_map, &fk);
+        if (fv) {
+            if (*fv == VERDICT_ALLOW)
+                return TC_ACT_OK;    /* this exact connection was cleared */
+            return TC_ACT_SHOT;      /* explicitly blocked flow */
+        }
+        /* unknown flow: mark PENDING, emit for evaluation, fall through. */
         __u8 pending = VERDICT_PENDING;
         bpf_map_update_elem(&flow_map, &dest_ip, &pending, BPF_ANY);
     }

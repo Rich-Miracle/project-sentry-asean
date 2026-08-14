@@ -32,6 +32,21 @@ type Event struct {
 	Payload    [4096]byte
 }
 
+// FlowMapKey mirrors struct flow_key in kernel/tc_hook.h — 16 bytes, packed.
+// All fields network byte order (the kernel builds the key from raw headers).
+type FlowMapKey struct {
+	SrcIP   uint32
+	DstIP   uint32
+	SrcPort uint16
+	DstPort uint16
+	Proto   uint8
+	_pad    [3]uint8
+}
+
+// htons swaps a host-order uint16 to network order (event ports are host order,
+// but the kernel flow_key uses network order, so we convert on write).
+func htons(v uint16) uint16 { return (v << 8) | (v >> 8) }
+
 // loadedObjects holds handles we must keep alive and close on exit.
 type loadedObjects struct {
 	coll *ebpf.Collection
@@ -191,6 +206,13 @@ func loadAndAttach(iface string) (*loadedObjects, link.Link, *ringbuf.Reader, er
 	verdictMap := coll.Maps["verdict_map"]
 	reassemblerInstance.writeVerdict = func(destIP uint32, verdict uint8) error {
 		return verdictMap.Put(destIP, verdict)
+	}
+	flowVerdictMap := coll.Maps["flow_verdict_map"]
+	reassemblerInstance.writeFlowVerdict = func(k FlowMapKey, verdict uint8) error {
+		if flowVerdictMap == nil {
+			return fmt.Errorf("flow_verdict_map not loaded")
+		}
+		return flowVerdictMap.Put(k, verdict)
 	}
 
 	// FIX: Added missing return statement. This also resolves "declared and not used: rb"

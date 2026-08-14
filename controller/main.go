@@ -29,6 +29,9 @@ func main() {
 	defer rb.Close()
 	log.Printf("TC egress hook attached on %s", ifaceName)
 
+	// Clearance bridge: mitmproxy POSTs cleared flow tuples here.
+	go startClearServer()
+
 	// Graceful shutdown on Ctrl-C.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)

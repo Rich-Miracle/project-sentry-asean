@@ -90,6 +90,10 @@ act_start(){
   docker exec -d -w /controller sentry-core sh -c 'setsid ./sentry-controller > /var/log/sentry/controller.log 2>&1 < /dev/null'
   sleep 3
   echo "  eBPF controller: $(docker exec sentry-core sh -c 'pgrep -f sentry-controller >/dev/null && echo attached || echo failed')"
+  # Web console (Meridian demo UI) — start if not already running
+  docker exec sentry-core sh -c 'pgrep -f demo_server.py >/dev/null || (cd /agent && setsid /agent/.venv/bin/python demo_server.py > /var/log/sentry/demo-ui.log 2>&1 < /dev/null &)'
+  sleep 2
+  echo "  Web console: $(docker exec sentry-core sh -c 'pgrep -f demo_server.py >/dev/null && echo up || echo failed')"
   echo; echo "  ${GRN}Ready.${R}  Web console → ${BLU}http://$VMIP:8090${R}"
 }
 

@@ -46,6 +46,8 @@ COPY agent/ /agent/
 COPY controller/ /controller/
 COPY kernel/tc_hook.o /controller/tc_hook.o
 COPY compose/jurisdiction.yaml /controller/jurisdiction.yaml
+COPY demo-ui/demo_server.py /agent/demo_server.py
+COPY demo-ui/index.html /agent/index.html
 
 # --- Build the Go controller at image-build time ---
 WORKDIR /controller

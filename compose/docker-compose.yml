@@ -32,6 +32,8 @@ services:
     depends_on: [workload]                       # <-- workload must start first 
     env_file:
       - .env
+    environment:
+      TZ: Asia/Kuala_Lumpur
     volumes:
       - ../reports:/reports
       - ../logs:/var/log/sentry

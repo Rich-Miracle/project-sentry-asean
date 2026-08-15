@@ -19,3 +19,7 @@ scrape_configs:
         labels:
           path: agent
           __path__: /var/log/sentry/agent.log
+      - targets: [localhost]
+        labels:
+          path: controller
+          __path__: /var/log/sentry/controller.log

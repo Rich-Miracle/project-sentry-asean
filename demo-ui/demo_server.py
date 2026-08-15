@@ -19,6 +19,7 @@ import re
 import smtplib
 import ssl
 import time
+import threading
 import os
 from email.message import EmailMessage
 
@@ -86,22 +87,25 @@ def send_email():
 
     _pre = _linecount(SMTP_LOG)
     t0 = time.time()
-    blocked = False
     error = None
-    try:
-        s = smtplib.SMTP_SSL(MAILSERVER, 465, timeout=15, context=_ctx)
-        s.send_message(msg)
-        s.quit()
-    except Exception as e:  # noqa: BLE001 — a killed flow surfaces here
-        blocked = True
-        error = type(e).__name__
+
+    def _do_send():
+        try:
+            s = smtplib.SMTP_SSL(MAILSERVER, 465, timeout=30, context=_ctx)
+            s.send_message(msg)
+            s.quit()
+        except Exception:  # noqa: BLE001 — killed flow surfaces here; log is source of truth
+            pass
+
+    threading.Thread(target=_do_send, daemon=True).start()
 
     detail = {}
-    for _ in range(30):                      # poll up to ~6s for the verdict line
+    for _ in range(150):                      # poll ~30s; breaks the instant the verdict lands
         detail = _verdict_since(SMTP_LOG, _pre) or {}
         if detail:
             break
         time.sleep(0.2)
+    blocked = detail.get("verdict") == "BLOCK" if detail else False
     return jsonify({
         "blocked": blocked,
         "jurisdiction": jurisdiction,
@@ -120,30 +124,32 @@ def upload_file():
 
     _pre = _linecount(HTTPS_LOG)
     t0 = time.time()
-    blocked = False
-    status = None
-    try:
-        r = requests.post(
-            US_UPLOAD,
-            files={"file": (f.filename, content)},
-            verify=False,
-            timeout=20,
-        )
-        status = r.status_code
-        blocked = status == 403
-    except Exception as e:  # noqa: BLE001
-        blocked = True
-        status = type(e).__name__
+    status = {"v": None}
+
+    def _do_upload():
+        try:
+            r = requests.post(
+                US_UPLOAD,
+                files={"file": (f.filename, content)},
+                verify=False,
+                timeout=30,
+            )
+            status["v"] = r.status_code
+        except Exception as e:  # noqa: BLE001
+            status["v"] = type(e).__name__
+
+    threading.Thread(target=_do_upload, daemon=True).start()
 
     detail = {}
-    for _ in range(30):
+    for _ in range(150):                      # poll ~30s; breaks the instant the verdict lands
         detail = _verdict_since(HTTPS_LOG, _pre) or {}
         if detail:
             break
         time.sleep(0.2)
+    blocked = detail.get("verdict") == "BLOCK" if detail else False
     return jsonify({
         "blocked": blocked,
-        "status": status,
+        "status": status["v"],
         "filename": f.filename,
         "jurisdiction": "US (non-equivalent)",
         "elapsed": round(time.time() - t0, 1),

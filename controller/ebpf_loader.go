@@ -131,6 +131,18 @@ func loadAndAttach(iface string) (*loadedObjects, link.Link, *ringbuf.Reader, er
 			log.Printf("control-plane exemption: 172.30.0.10 (mailserver) -> ALLOW")
 		}
 	}
+	// us-server — sanctioned upload endpoint. mitmproxy inspects the upload
+	// then delivers here; the content plane governs what may be sent, the
+	// kernel gate blocks uploads to any non-sanctioned destination.
+	if vm := coll.Maps["verdict_map"]; vm != nil {
+		var usUploadKey uint32 = 0x16001EAC // 172.30.0.22
+		var allow uint8 = 0
+		if err := vm.Put(usUploadKey, allow); err != nil {
+			log.Printf("warning: could not exempt us-server upload endpoint: %v", err)
+		} else {
+			log.Printf("control-plane exemption: 172.30.0.22 (us-server, sanctioned upload) -> ALLOW")
+		}
+	}
 	// VM host — return traffic for published-port services (UI, Grafana) goes
 	// back to the host address; without this, default-deny drops the replies.
 	if vm := coll.Maps["verdict_map"]; vm != nil {

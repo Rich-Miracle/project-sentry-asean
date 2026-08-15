@@ -149,6 +149,22 @@ act_reports(){
   [ "$a" = y ] && xdg-open "$(echo "$files"|head -1)" 2>/dev/null
 }
 
+act_exfil_report(){
+  banner; echo "  ${B}Exfiltration Audit Report${R}"; line
+  printf "  period? [1] day  [2] week  [3] month  ▸ "; read -r p
+  case $p in 1) period=day;; 3) period=month;; *) period=week;; esac
+  echo "  ${GRY}generating ${period} report...${R}"
+  local out; out=$(C "cd /agent && /agent/.venv/bin/python exfil_report.py --period $period" 2>/dev/null | tail -1)
+  local base; base=$(basename "$out" 2>/dev/null)
+  if [ -n "$base" ] && [ -f "$ROOT/reports/$base" ]; then
+    echo "  ${GRN}generated:${R} reports/$base"
+    printf "  open? [y/N] "; read -r a
+    [ "$a" = y ] && xdg-open "$ROOT/reports/$base" 2>/dev/null
+  else
+    echo "  ${GRY}report generated in container /reports (check reports/)${R}"
+  fi
+}
+
 act_logs(){
   banner; echo "  ${B}Live Logs${R}"; line
   echo "   1  ${TEA}SMTPS${R} interception (:4465)"
@@ -177,6 +193,7 @@ while true; do
   printf "   ${B}5${R}  PDPA ${WHT}Knowledge Base${R}\n"
   printf "   ${B}6${R}  Audit ${WHT}reports${R}\n"
   printf "   ${B}7${R}  Live ${WHT}logs${R}\n"
+  printf "   ${B}8${R}  ${WHT}Exfiltration${R} audit report\n"
   printf "   ${B}0${R}  ${D}Exit${R}\n"
   line
   printf "  ▸ "; read -r c
@@ -188,6 +205,7 @@ while true; do
     5) act_corpus| less -R -P"PDPA corpus — ↑↓ scroll · q to exit review mode"; continue ;;
     6) act_reports ;;
     7) act_logs; continue ;;
+    8) act_exfil_report ;;
     0) clear; exit 0 ;;
     *) continue ;;
   esac
